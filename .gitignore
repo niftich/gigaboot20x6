@@ -17,3 +17,6 @@ tags
 TAGS
 
 # End common set.
+
+# Build directory
+out/
