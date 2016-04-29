@@ -52,6 +52,7 @@ static int io(int s, nbmsg *msg, size_t len, nbmsg *ack) {
 			fprintf(stderr, "\nnbserver: socket write error %d\n", errno);
 			return -1;
 		}
+again:
 		r = read(s, ack, 2048);
 		if (r < 0) {
 			if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
@@ -68,22 +69,23 @@ static int io(int s, nbmsg *msg, size_t len, nbmsg *ack) {
 		}
 		if (r < sizeof(nbmsg)) {
 			fprintf(stderr, "Z");
-			continue;
+			goto again;
 		}
 		if (ack->magic != NB_MAGIC) {
 			fprintf(stderr, "?");
-			continue;
+			goto again;
 		}
 		if (ack->cookie != msg->cookie) {
 			fprintf(stderr, "C");
-			continue;
+			goto again;
 		}
 		if (ack->arg != msg->arg) {
 			fprintf(stderr, "A");
-			continue;
+			goto again;
 		}
 		if (ack->cmd == NB_ACK) return 0;
-		return -1;
+		fprintf(stderr, "?");
+		goto again;
 	}
 }
 
