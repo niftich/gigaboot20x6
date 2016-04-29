@@ -169,7 +169,7 @@ typedef struct {
 } kernel_t;
 
 void install_memmap(kernel_t *k, struct e820entry *memmap, unsigned count) {
-	memcpy(memmap, k->zeropage + ZP_E820_TABLE, sizeof(*memmap) * count);
+	memcpy(k->zeropage + ZP_E820_TABLE, memmap, sizeof(*memmap) * count);
 	ZP8(k->zeropage, ZP_E820_COUNT) = count;
 }
 
