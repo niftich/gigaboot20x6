@@ -334,13 +334,13 @@ int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE *sys, void *image, size_t sz) {
 	kernel_t kernel;
 	EFI_STATUS r;
 	UINTN key;
-	int n;
+	int n, i;
 
 	printf("boot_kernel() from %p (%ld bytes)\n", image, sz);
 
 	if (load_kernel(sys->BootServices, image, sz, &kernel)) {
 		printf("Failed to load kernel image\n");
-		goto fail;
+		return -1;
 	}
 
 	ZP32(kernel.zeropage, ZP_EXTRA_MAGIC) = ZP_MAGIC_VALUE;
@@ -355,13 +355,10 @@ int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE *sys, void *image, size_t sz) {
 	ZP32(kernel.zeropage, ZP_FB_SIZE) = 256*1024*1024;
 
 	n = process_memory_map(sys, &key, 0);
-	if (n > 0) {
-		struct e820entry *e = e820table;
-		while (n > 0) {
-			printf("%016lx %016lx %s\n", e->addr, e->size, e820name[e->type]);
-			e++;
-			n--;
-		}
+
+	for (i = 0; i < n; i++) {
+		struct e820entry *e = e820table + i;
+		printf("%016lx %016lx %s\n", e->addr, e->size, e820name[e->type]);
 	}
 
 	r = sys->BootServices->ExitBootServices(img, key);
@@ -369,18 +366,18 @@ int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE *sys, void *image, size_t sz) {
 		n = process_memory_map(sys, &key, 1);
 		r = sys->BootServices->ExitBootServices(img, key);
 		if (r) {
-			printf("Cannot Exit Services! %ld\n", r);
-		} else {
-			install_memmap(&kernel, e820table, n);
-			start_kernel(&kernel);
+			printf("Cannot ExitBootServices! (2) %ld\n", r);
+			return -1;
 		}
 	} else if (r) {
-		printf("Cannot Exit! %ld\n", r);
-	} else {
-		for (;;) ;
+		printf("Cannot ExitBootServices! (1) %ld\n", r);
+		return -1;
 	}
-fail:
-	return -1;
+
+	install_memmap(&kernel, e820table, n);
+	start_kernel(&kernel);
+
+	return 0;
 }
 
 EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE *sys) {
