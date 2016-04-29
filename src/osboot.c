@@ -438,6 +438,9 @@ EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE *sys) {
 			continue;
 		}
 
+		// make sure network traffic is not in flight, etc
+		netboot_close();
+
 		// maybe it's a kernel image?
 		boot_kernel(img, sys, image, n);
 		goto fail;

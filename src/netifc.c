@@ -229,6 +229,10 @@ force_promisc:
 }
 
 void netifc_close(void) {
+	gBS->SetTimer(net_timer, TimerCancel, 0);
+	gBS->CloseEvent(net_timer);
+	snp->Shutdown(snp);
+	snp->Stop(snp);
 }
 
 int netifc_active(void) {

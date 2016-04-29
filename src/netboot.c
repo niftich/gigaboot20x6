@@ -186,3 +186,6 @@ int netboot_poll(void) {
 	}
 }
 
+void netboot_close(void) {
+	netifc_close();
+}

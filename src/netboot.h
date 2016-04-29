@@ -50,3 +50,4 @@ typedef struct nbmsg_t {
 
 int netboot_init(void *buf, size_t len);
 int netboot_poll(void);
+void netboot_close(void);
