@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <errno.h>
 #include <stdint.h>
@@ -165,7 +166,15 @@ void usage(void) {
 		);
 	exit(1);
 }
-		
+
+void drain(int fd) {
+	char buf[4096];
+	if (fcntl(fd, F_SETFL, O_NONBLOCK) == 0) {
+		while (read(fd, buf, sizeof(buf)) > 0) ;
+		fcntl(fd, F_SETFL, 0);
+	}
+}
+
 int main(int argc, char **argv) {
 	struct sockaddr_in6 addr;
 	char tmp[INET6_ADDRSTRLEN];
@@ -235,6 +244,7 @@ int main(int argc, char **argv) {
 		if (once) {
 			break;
 		}
+		drain(s);
 	}
 
 	return 0;
