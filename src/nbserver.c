@@ -32,9 +32,11 @@
 
 #include <errno.h>
 #include <stdint.h>
-#include <netboot.h>
+
+#include "netboot.h"
 
 static uint32_t cookie = 1;
+static char *appname;
 
 static int io(int s, nbmsg *msg, size_t len, nbmsg *ack) {
 	int retries = 5;
@@ -49,7 +51,7 @@ static int io(int s, nbmsg *msg, size_t len, nbmsg *ack) {
 			if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
 				continue;
 			}
-			fprintf(stderr, "\nnbserver: socket write error %d\n", errno);
+			fprintf(stderr, "\n%s: socket write error %d\n", appname, errno);
 			return -1;
 		}
 again:
@@ -61,9 +63,9 @@ again:
 					fprintf(stderr, "T");
 					continue;
 				}
-				fprintf(stderr, "\nnbserver: timed out\n");
+				fprintf(stderr, "\n%s: timed out\n", appname);
 			} else {
-				fprintf(stderr, "\nnbserver: socket read error %d\n", errno);
+				fprintf(stderr, "\n%s: socket read error %d\n", appname, errno);
 			}
 			return -1;
 		}
@@ -104,14 +106,14 @@ static void xfer(struct sockaddr_in6 *addr, const char *fn) {
 		return;
 	}
 	if ((s = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-		fprintf(stderr, "nbserver: cannot create socket %d\n", errno);
+		fprintf(stderr, "%s: cannot create socket %d\n", appname, errno);
 		goto done;
 	}
 	tv.tv_sec = 0;
 	tv.tv_usec = 250 * 1000;
 	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 	if (connect(s, (void*) addr, sizeof(*addr)) < 0) {
-		fprintf(stderr, "nbserver: cannot connect to [%s]%d\n",
+		fprintf(stderr, "%s: cannot connect to [%s]%d\n", appname,
 			inet_ntop(AF_INET6, &addr->sin6_addr, tmp, sizeof(tmp)),
 			ntohs(addr->sin6_port));
 		goto done;
@@ -121,7 +123,7 @@ static void xfer(struct sockaddr_in6 *addr, const char *fn) {
 	msg->arg = 0;
 	strcpy((void*) msg->data, "kernel.bin");
 	if (io(s, msg, sizeof(nbmsg) + sizeof("kernel.bin"), ack)) {
-		fprintf(stderr, "nbserver: failed to start transfer\n");
+		fprintf(stderr, "%s: failed to start transfer\n", appname);
 		goto done;
 	}
 
@@ -131,7 +133,7 @@ static void xfer(struct sockaddr_in6 *addr, const char *fn) {
 		r = fread(msg->data, 1, 1024, fp);
 		if (r == 0) {
 			if (ferror(fp)) {
-				fprintf(stderr, "\nnbserver: error: reading '%s'\n", fn);
+				fprintf(stderr, "\n%s: error: reading '%s'\n", appname, fn);
 				goto done;
 			}
 			break;
@@ -142,7 +144,7 @@ static void xfer(struct sockaddr_in6 *addr, const char *fn) {
 			fprintf(stderr, "#");
 		}
 		if (io(s, msg, sizeof(nbmsg) + r, ack)) {
-			fprintf(stderr, "\nnbserver: error: sending '%s'\n", fn);
+			fprintf(stderr, "\n%s: error: sending '%s'\n", appname, fn);
 			goto done;
 		}
 		msg->arg += r;
@@ -151,9 +153,9 @@ static void xfer(struct sockaddr_in6 *addr, const char *fn) {
 	msg->cmd = NB_BOOT;
 	msg->arg = 0;
 	if (io(s, msg, sizeof(nbmsg), ack)) {
-		fprintf(stderr, "\nnbserver: failed to send boot command\n");
+		fprintf(stderr, "\n%s: failed to send boot command\n", appname);
 	} else {
-		fprintf(stderr, "\nnbserver: sent boot command\n");
+		fprintf(stderr, "\n%s: sent boot command\n", appname);
 	}
 done:
 	if (s >= 0) close(s);
@@ -162,10 +164,10 @@ done:
 
 void usage(void) {
 	fprintf(stderr,
-		"usage:   nbserver [ <option> ]* <filename>\n"
+		"usage:   %s [ <option> ]* <filename>\n"
 		"\n"
-		"options: -1  only boot once, then exit\n"
-		);
+		"options: -1  only boot once, then exit\n",
+		appname);
 	exit(1);
 }
 
@@ -183,6 +185,8 @@ int main(int argc, char **argv) {
 	int r, s, n = 1;
 	const char *fn = NULL;
 	int once = 0;
+
+	appname = argv[0];
 
 	while (argc > 1) {
 		if (argv[1][0] != '-') {
@@ -206,18 +210,18 @@ int main(int argc, char **argv) {
 
 	s = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 	if (s < 0) {
-		fprintf(stderr, "nbserver: cannot create socket %d\n", s);
+		fprintf(stderr, "%s: cannot create socket %d\n", appname, s);
 		return -1;
 	}
 	setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n));
 	if ((r = bind(s, (void*) &addr, sizeof(addr))) < 0) {
-		fprintf(stderr, "nbserver: cannot bind to [%s]%d %d\n",
+		fprintf(stderr, "%s: cannot bind to [%s]%d %d\n", appname,
 			inet_ntop(AF_INET6, &addr.sin6_addr, tmp, sizeof(tmp)),
 			ntohs(addr.sin6_port), r);
 		return -1;
 	}
 
-	fprintf(stderr, "nbserver: listening on [%s]%d\n",
+	fprintf(stderr, "%s: listening on [%s]%d\n", appname,
 		inet_ntop(AF_INET6, &addr.sin6_addr, tmp, sizeof(tmp)),
 		ntohs(addr.sin6_port));
 	for (;;) {
@@ -228,7 +232,7 @@ int main(int argc, char **argv) {
 		rlen = sizeof(ra);
 		r = recvfrom(s, buf, 4096, 0, (void*) &ra, &rlen);
 		if (r < 0) {
-			fprintf(stderr, "nbserver: socket read error %d\n", r);
+			fprintf(stderr, "%s: socket read error %d\n", appname, r);
 			break;
 		}
 		if (r < sizeof(nbmsg)) continue;
@@ -238,10 +242,10 @@ int main(int argc, char **argv) {
 		}
 		if (msg->magic != NB_MAGIC) continue;
 		if (msg->cmd != NB_ADVERTISE) continue;
-		fprintf(stderr, "nbserver: got beacon from [%s]%d\n",
+		fprintf(stderr, "%s: got beacon from [%s]%d\n", appname,
 			inet_ntop(AF_INET6, &ra.sin6_addr, tmp, sizeof(tmp)),
 			ntohs(ra.sin6_port));
-		fprintf(stderr, "nbserver: sending '%s'...\n", fn);
+		fprintf(stderr, "%s: sending '%s'...\n", appname, fn);
 		xfer(&ra, fn);
 		if (once) {
 			break;
