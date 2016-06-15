@@ -9,20 +9,20 @@ development.
 External Software Included
 --------------------------
 
-Local Path:   external/gnu-efi/...
+Local Path:   third_party/gnu-efi/...
 Description:  headers and tooling to build UEFI binaries with gcc, etc
 Project:      https://sourceforge.net/projects/gnu-efi/
 Source:       git://git.code.sf.net/p/gnu-efi/code
 Version:      6605c16fc8b1fd3b2085364902d1fa73aa7fad76 (post-3.0.4)
 License:      BSD-ish, see gnu-efi/README.*
 
-Local Path:   external/edk2/...
+Local Path:   third_party/edk2/...
 Description:  headers for UEFI from Tianocore EDK II
 Project:      http://www.tianocore.org/edk2/
 Source:       https://github.com/tianocore/edk2
 License:      BSD-ish, see headers
 
-Local Path:   external/ovmf/... 
+Local Path:   third_party/ovmf/... 
 Description:  UEFI Firmware Suitable for use in Qemu
 Distribution: http://www.tianocore.org/ovmf/
 Version:      OVMF-X64-r15214.zip

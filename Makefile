@@ -7,7 +7,7 @@ EFI_LD		:= $(EFI_TOOLCHAIN)ld
 EFI_OBJCOPY	:= $(EFI_TOOLCHAIN)objcopy
 EFI_AR		:= $(EFI_TOOLCHAIN)ar
 
-EFI_PATH	:= external/gnu-efi
+EFI_PATH	:= third_party/gnu-efi
 EFI_LIB_PATHS	:= $(EFI_PATH)/$(ARCH)/lib $(EFI_PATH)/$(ARCH)/gnuefi out
 EFI_INC_PATHS	:= $(EFI_PATH)/inc $(EFI_PATH)/inc/$(ARCH) $(EFI_PATH)/inc/protocol
 
@@ -17,7 +17,7 @@ EFI_LINKSCRIPT	:= $(EFI_PATH)/gnuefi/elf_$(ARCH)_efi.lds
 EFI_CFLAGS	:= -fpic -fshort-wchar -fno-stack-protector -mno-red-zone
 EFI_CFLAGS	+= -Wall
 EFI_CFLAGS	+= -std=c99
-EFI_CFLAGS	+= -ffreestanding -nostdinc -Iinclude -Isrc -Iexternal/edk2
+EFI_CFLAGS	+= -ffreestanding -nostdinc -Iinclude -Isrc -Ithird_party/edk2
 EFI_CFLAGS	+= $(patsubst %,-I%,$(EFI_INC_PATHS))
 EFI_CFLAGS	+= -DHAVE_USE_MS_ABI=1
 EFI_CFLAGS	+= -ggdb
@@ -68,7 +68,7 @@ $(EFI_CRT0):
 	$(QUIET)$(MAKE) -C $(EFI_PATH)
 
 QEMU_OPTS := -cpu qemu64
-QEMU_OPTS += -bios external/ovmf/OVMF.fd
+QEMU_OPTS += -bios third_party/ovmf/OVMF.fd
 QEMU_OPTS += -drive file=out/disk.img,format=raw,if=ide
 
 qemu:: all
