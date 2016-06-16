@@ -207,7 +207,7 @@ int load_kernel(EFI_BOOT_SERVICES *bs, uint8_t *image, size_t sz, kernel_t *k) {
 		goto fail;
 	}
 	setup_sz = (ZP8(image, ZP_SETUP_SECTS) + 1) * 512;
-	image_sz = (ZP16(image, ZP_SYSSIZE) * 16);
+	image_sz = (ZP32(image, ZP_SYSSIZE) * 16);
 	setup_end = ZP_JUMP + ZP8(image, ZP_JUMP+1);
 
 	printf("setup %d image %d  hdr %04x-%04x\n", setup_sz, image_sz, ZP_SETUP, setup_end);
