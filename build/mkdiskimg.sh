@@ -14,5 +14,7 @@ if [[ ! -f $1 ]]; then
 	parted "$1" -s -a minimal toggle 1 boot
 
 	mformat -i "$1"@@1024K -h 32 -t 32 -n 64 -c 1
+    mmd -i "$1"@@1024K ::EFI
+    mmd -i "$1"@@1024K ::EFI/BOOT
 fi
 

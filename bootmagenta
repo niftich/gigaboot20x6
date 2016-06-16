@@ -1,0 +1,3 @@
+#!/bin/sh
+
+make && mcopy -o -i out/disk.img@@1024K ../magenta/build-magenta-qemu-x86-64/lk.bin ::LK.BIN && make qemu

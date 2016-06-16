@@ -51,12 +51,17 @@ out/libstuff.a: $(LIB_OBJS)
 	$(QUIET)rm -f $@
 	$(QUIET)ar rc $@ $^
 
+out/BOOTx64.EFI: out/osboot.efi
+	@mkdir -p $(dir $@)
+	$(QUIET)cp -f $^ $@
+
 # generate a small IDE disk image for qemu
-out/disk.img: $(APPS)
+out/disk.img: $(APPS) out/BOOTx64.EFI
 	@mkdir -p $(dir $@)
 	$(QUIET)./build/mkdiskimg.sh $@
 	@echo copying: $(APPS) README.txt to disk.img
 	$(QUIET)mcopy -o -i out/disk.img@@1024K $(APPS) README.txt ::
+	$(QUIET)mcopy -o -i out/disk.img@@1024K $(APPS) out/BOOTx64.EFI ::EFI/BOOT/
 
 ALL += out/disk.img
 
@@ -70,6 +75,7 @@ $(EFI_CRT0):
 QEMU_OPTS := -cpu qemu64
 QEMU_OPTS += -bios third_party/ovmf/OVMF.fd
 QEMU_OPTS += -drive file=out/disk.img,format=raw,if=ide
+QEMU_OPTS += -serial stdio
 
 qemu:: all
 	qemu-system-x86_64 $(QEMU_OPTS)
