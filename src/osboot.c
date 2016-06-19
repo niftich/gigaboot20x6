@@ -394,12 +394,12 @@ EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE *sys) {
 	}
 	printf("Failed to load 'lk.bin' from boot media\n\n");
 
-	if (bs->AllocatePages(AllocateAnyPages, EfiLoaderData, 1024, &mem)) {
+	if (bs->AllocatePages(AllocateAnyPages, EfiLoaderData, 4096, &mem)) {
 		printf("Failed to allocate network io buffer\n");
 		goto fail;
 	}
 	image = (void*) mem;
-	if (netboot_init(image, 1024 * 4096)) {
+	if (netboot_init(image, 4096 * 4096)) {
 		printf("Failed to initialize NetBoot\n");
 		goto fail;
 	}
