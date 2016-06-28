@@ -25,12 +25,11 @@ static uint32_t last_arg = 0;
 static uint32_t last_ack_cmd = 0;
 static uint32_t last_ack_arg = 0;
 
-static uint8_t* nb_buffer;
-static uint32_t nb_bufsize = 0;
-static uint32_t nb_offset = 0;
-
 static int nb_boot_now = 0;
 static int nb_active = 0;
+
+// item being downloaded
+static nbfile* item;
 
 void udp6_recv(void* data, size_t len,
                const ip6_addr* daddr, uint16_t dport,
@@ -71,20 +70,31 @@ void udp6_recv(void* data, size_t len,
         if (len == 0)
             return;
         msg->data[len - 1] = 0;
-        nb_offset = 0;
-        printf("netboot: Receive File...\n");
+        for (int i = 0; i < (len - 1); i++) {
+            if ((msg->data[i] < ' ') || (msg->data[i] > 127)) {
+                msg->data[i] = '.';
+            }
+        }
+        item = netboot_get_buffer((const char*) msg->data);
+        if (item) {
+            item->offset = 0;
+            printf("netboot: Receive File '%s'...\n", (char*) msg->data);
+        } else {
+            printf("netboot: Rejected File '%s'...\n", (char*) msg->data);
+            ack.cmd = NB_ERROR_BAD_FILE;
+        }
         break;
     case NB_DATA:
-        if (msg->arg != nb_offset)
+        if (item == 0)
             return;
-        if (nb_buffer == 0)
+        if (msg->arg != item->offset)
             return;
         ack.arg = msg->arg;
-        if ((nb_offset + len) > nb_bufsize) {
+        if ((item->offset + len) > item->size) {
             ack.cmd = NB_ERROR_TOO_LARGE;
         } else {
-            memcpy(nb_buffer + nb_offset, msg->data, len);
-            nb_offset += len;
+            memcpy(item->data + item->offset, msg->data, len);
+            item->offset += len;
             ack.cmd = NB_ACK;
         }
         break;
@@ -130,14 +140,11 @@ static void advertise(void) {
 #define FAST_TICK 100
 #define SLOW_TICK 1000
 
-int netboot_init(void* buf, size_t len) {
+int netboot_init(void) {
     if (netifc_open()) {
         printf("netboot: Failed to open network interface\n");
         return -1;
     }
-
-    nb_buffer = buf;
-    nb_bufsize = len;
     return 0;
 }
 
@@ -179,7 +186,7 @@ int netboot_poll(void) {
 
     if (nb_boot_now) {
         nb_boot_now = 0;
-        return nb_offset;
+        return 1;
     } else {
         return 0;
     }

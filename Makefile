@@ -47,7 +47,7 @@ what_to_build::	all
 include build/build.mk
 
 # declare applications here
-$(call efi_app, hello, hello.c)
+#$(call efi_app, hello, hello.c)
 $(call efi_app, showmem, showmem.c)
 $(call efi_app, fileio, fileio.c)
 $(call efi_app, osboot, osboot.c netboot.c netifc.c inet6.c)

@@ -251,7 +251,7 @@ int load_kernel(EFI_BOOT_SERVICES* bs, uint8_t* image, size_t sz, kernel_t* k) {
     ZP32(k->zeropage, ZP_CMDLINE) = (uint64_t)k->cmdline;
     k->cmdline[0] = 0;
 
-    // no ramdisk for now
+    // default to no ramdisk
     ZP32(k->zeropage, ZP_RAMDISK_BASE) = 0;
     ZP32(k->zeropage, ZP_RAMDISK_SIZE) = 0;
 
@@ -325,13 +325,17 @@ uint32_t find_acpi_root(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
 
 static EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
 
-int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys, void* image, size_t sz) {
+int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys,
+                void* image, size_t sz, void* ramdisk, size_t rsz) {
     kernel_t kernel;
     EFI_STATUS r;
     UINTN key;
     int n, i;
 
     printf("boot_kernel() from %p (%ld bytes)\n", image, sz);
+    if (ramdisk && rsz) {
+        printf("ramdisk at %p (%ld bytes)\n", ramdisk, rsz);
+    }
 
     if (load_kernel(sys->BootServices, image, sz, &kernel)) {
         printf("Failed to load kernel image\n");
@@ -349,6 +353,10 @@ int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys, void* image, size_t sz) {
     ZP32(kernel.zeropage, ZP_FB_REGBASE) = 0;
     ZP32(kernel.zeropage, ZP_FB_SIZE) = 256 * 1024 * 1024;
 
+    if (ramdisk && rsz) {
+        ZP32(kernel.zeropage, ZP_RAMDISK_BASE) = (uint32_t) (uintptr_t) ramdisk;
+        ZP32(kernel.zeropage, ZP_RAMDISK_SIZE) = rsz;
+    }
     n = process_memory_map(sys, &key, 0);
 
     for (i = 0; i < n; i++) {
@@ -375,11 +383,43 @@ int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys, void* image, size_t sz) {
     return 0;
 }
 
+#define KBUFSIZE (16*1024*1024)
+#define RBUFSIZE (128*1024*1024)
+
+static nbfile nbkernel;
+static nbfile nbramdisk;
+
+nbfile* netboot_get_buffer(const char* name) {
+    // we know these are in a buffer large enough
+    // that this is safe (todo: implement strcmp)
+    if (!memcmp(name, "kernel.bin", 11)) {
+        return &nbkernel;
+    }
+    if (!memcmp(name, "ramdisk.bin", 11)) {
+        return &nbramdisk;
+    }
+    return NULL;
+}
+
+int try_local_boot(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
+    UINTN ksz, rsz;
+    void* kernel;
+    void* ramdisk;
+    
+    if ((kernel = LoadFile(L"magenta.bin", &ksz)) == NULL) {
+        printf("Failed to load 'magenta.bin' from boot media\n\n");
+        return 0;
+    }
+    
+    ramdisk = LoadFile(L"ramdisk.bin", &rsz);
+
+    boot_kernel(img, sys, kernel, ksz, ramdisk, rsz);
+    return -1;
+}
+
 EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
     EFI_BOOT_SERVICES* bs = sys->BootServices;
     EFI_PHYSICAL_ADDRESS mem;
-    void* image;
-    UINTN sz;
 
     InitializeLib(img, sys);
     InitGoodies(img, sys);
@@ -389,35 +429,47 @@ EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
     bs->LocateProtocol(&GraphicsOutputProtocol, NULL, (void**)&gop);
     printf("Framebuffer base is at %lx\n\n", gop->Mode->FrameBufferBase);
 
-    image = LoadFile(L"lk.bin", &sz);
-    if (image != NULL) {
-        boot_kernel(img, sys, image, sz);
+    if (try_local_boot(img, sys) < 0) {
         goto fail;
     }
-    printf("Failed to load 'lk.bin' from boot media\n\n");
 
-    if (bs->AllocatePages(AllocateAnyPages, EfiLoaderData, 4096, &mem)) {
+    mem = 0xFFFFFFFF;
+    if (bs->AllocatePages(AllocateMaxAddress, EfiLoaderData, KBUFSIZE / 4096, &mem)) {
         printf("Failed to allocate network io buffer\n");
         goto fail;
     }
-    image = (void*)mem;
-    if (netboot_init(image, 4096 * 4096)) {
+    nbkernel.data = (void*) mem;
+    nbkernel.size = KBUFSIZE;
+
+    mem = 0xFFFFFFFF;
+    if (bs->AllocatePages(AllocateMaxAddress, EfiLoaderData, RBUFSIZE / 4096, &mem)) {
+        printf("Failed to allocate network io buffer\n");
+        goto fail;
+    }
+    nbramdisk.data = (void*) mem;
+    nbramdisk.size = RBUFSIZE;
+
+    if (netboot_init()) {
         printf("Failed to initialize NetBoot\n");
         goto fail;
     }
     printf("\nNetBoot Server Started...\n\n");
     for (;;) {
         int n = netboot_poll();
-        if (n < 1024)
+        if (n < 1) {
             continue;
-
-        uint8_t* x = image;
+        }
+        if (nbkernel.offset < 32768) {
+            // too small to be a kernel
+            continue;
+        }
+        uint8_t* x = nbkernel.data;
         if ((x[0] == 'M') && (x[1] == 'Z') && (x[0x80] == 'P') && (x[0x81] == 'E')) {
             UINTN exitdatasize;
             EFI_STATUS r;
             EFI_HANDLE h;
             printf("Attempting to run EFI binary...\n");
-            r = bs->LoadImage(FALSE, img, NULL, image, n, &h);
+            r = bs->LoadImage(FALSE, img, NULL, (void*) nbkernel.data, nbkernel.offset, &h);
             if (r != EFI_SUCCESS) {
                 printf("LoadImage Failed %ld\n", r);
                 continue;
@@ -435,7 +487,8 @@ EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
         netboot_close();
 
         // maybe it's a kernel image?
-        boot_kernel(img, sys, image, n);
+        boot_kernel(img, sys, (void*) nbkernel.data, nbkernel.offset,
+                    (void*) nbramdisk.data, nbramdisk.offset);
         goto fail;
     }
 
