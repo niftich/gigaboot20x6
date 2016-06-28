@@ -16,56 +16,62 @@
 #include <efilib.h>
 #include <goodies.h>
 
-EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE *sys) {
-	EFI_LOADED_IMAGE *loaded;
-	EFI_STATUS r;
+EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
+    EFI_LOADED_IMAGE* loaded;
+    EFI_STATUS r;
 
-        InitializeLib(img, sys);
-	InitGoodies(img, sys);
+    InitializeLib(img, sys);
+    InitGoodies(img, sys);
 
-	Print(L"Hello, EFI World\n");
+    Print(L"Hello, EFI World\n");
 
-	r = OpenProtocol(img, &LoadedImageProtocol, (void**) &loaded);
-	if (r) Fatal("LoadedImageProtocol", r);
+    r = OpenProtocol(img, &LoadedImageProtocol, (void**)&loaded);
+    if (r)
+        Fatal("LoadedImageProtocol", r);
 
-	Print(L"Img DeviceHandle='%s'\n", HandleToString(loaded->DeviceHandle));
-	Print(L"Img FilePath='%s'\n", DevicePathToStr(loaded->FilePath));
-	Print(L"Img Base=%lx Size=%lx\n", loaded->ImageBase, loaded->ImageSize);
+    Print(L"Img DeviceHandle='%s'\n", HandleToString(loaded->DeviceHandle));
+    Print(L"Img FilePath='%s'\n", DevicePathToStr(loaded->FilePath));
+    Print(L"Img Base=%lx Size=%lx\n", loaded->ImageBase, loaded->ImageSize);
 
-	EFI_FILE_IO_INTERFACE *fioi;
-	r = OpenProtocol(loaded->DeviceHandle, &SimpleFileSystemProtocol, (void **) &fioi);
-	if (r) Fatal("SimpleFileSystemProtocol", r);
+    EFI_FILE_IO_INTERFACE* fioi;
+    r = OpenProtocol(loaded->DeviceHandle, &SimpleFileSystemProtocol, (void**)&fioi);
+    if (r)
+        Fatal("SimpleFileSystemProtocol", r);
 
-	EFI_FILE_HANDLE root;
-	r = fioi->OpenVolume(fioi, &root);
-	if (r) Fatal("OpenVolume", r);
+    EFI_FILE_HANDLE root;
+    r = fioi->OpenVolume(fioi, &root);
+    if (r)
+        Fatal("OpenVolume", r);
 
-	EFI_FILE_HANDLE file;
-	r = root->Open(root, &file, L"README.txt", EFI_FILE_MODE_READ, 0);
+    EFI_FILE_HANDLE file;
+    r = root->Open(root, &file, L"README.txt", EFI_FILE_MODE_READ, 0);
 
-	if (r == EFI_SUCCESS) {
-		char buf[512];
-		UINTN sz = sizeof(buf);
-		EFI_FILE_INFO *finfo = (void*) buf;
-		r = file->GetInfo(file, &FileInfoGUID, &sz, finfo);
-		if (r) Fatal("GetInfo", r);
-		Print(L"FileSize %ld\n", finfo->FileSize);
+    if (r == EFI_SUCCESS) {
+        char buf[512];
+        UINTN sz = sizeof(buf);
+        EFI_FILE_INFO* finfo = (void*)buf;
+        r = file->GetInfo(file, &FileInfoGUID, &sz, finfo);
+        if (r)
+            Fatal("GetInfo", r);
+        Print(L"FileSize %ld\n", finfo->FileSize);
 
-		sz = sizeof(buf) - 1;
-		r = file->Read(file, &sz, buf);
-		if (r) Fatal("Read", r);
+        sz = sizeof(buf) - 1;
+        r = file->Read(file, &sz, buf);
+        if (r)
+            Fatal("Read", r);
 
-		char *x = buf;
-		while(sz-- > 0) Print(L"%c", (CHAR16) *x++);
+        char* x = buf;
+        while (sz-- > 0)
+            Print(L"%c", (CHAR16)*x++);
 
-		file->Close(file);
-	}
+        file->Close(file);
+    }
 
-	root->Close(root);
-	CloseProtocol(loaded->DeviceHandle, &SimpleFileSystemProtocol);
-	CloseProtocol(img, &LoadedImageProtocol);
+    root->Close(root);
+    CloseProtocol(loaded->DeviceHandle, &SimpleFileSystemProtocol);
+    CloseProtocol(img, &LoadedImageProtocol);
 
-	WaitAnyKey();
+    WaitAnyKey();
 
-        return EFI_SUCCESS;
+    return EFI_SUCCESS;
 }

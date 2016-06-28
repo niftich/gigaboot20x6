@@ -24,44 +24,46 @@ EFI_GUID FileInfoGUID = EFI_FILE_INFO_ID;
 
 // -lefi has its own globals, but this may end up not
 // depending on that, so let's not depend on those
-EFI_SYSTEM_TABLE *gSys;
+EFI_SYSTEM_TABLE* gSys;
 EFI_HANDLE gImg;
-EFI_BOOT_SERVICES *gBS;
-SIMPLE_TEXT_OUTPUT_INTERFACE *gConOut;
+EFI_BOOT_SERVICES* gBS;
+SIMPLE_TEXT_OUTPUT_INTERFACE* gConOut;
 
-void InitGoodies(EFI_HANDLE img, EFI_SYSTEM_TABLE *sys) {
-	gSys = sys;
-	gImg = img;
-	gBS = sys->BootServices;
-	gConOut = sys->ConOut;
+void InitGoodies(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
+    gSys = sys;
+    gImg = img;
+    gBS = sys->BootServices;
+    gConOut = sys->ConOut;
 }
 
 void WaitAnyKey(void) {
-	SIMPLE_INPUT_INTERFACE *sii = gSys->ConIn;
-	EFI_INPUT_KEY key;
-	while (sii->ReadKeyStroke(sii, &key) != EFI_SUCCESS) ;
+    SIMPLE_INPUT_INTERFACE* sii = gSys->ConIn;
+    EFI_INPUT_KEY key;
+    while (sii->ReadKeyStroke(sii, &key) != EFI_SUCCESS)
+        ;
 }
 
-void Fatal(const char *msg, EFI_STATUS status) {
-	printf("\nERROR: %s (%ld)\n", msg, status);
-	WaitAnyKey();
-	gBS->Exit(gImg, 1, 0, NULL);
+void Fatal(const char* msg, EFI_STATUS status) {
+    printf("\nERROR: %s (%ld)\n", msg, status);
+    WaitAnyKey();
+    gBS->Exit(gImg, 1, 0, NULL);
 }
 
-CHAR16 *HandleToString(EFI_HANDLE h) {
-	EFI_DEVICE_PATH *path = DevicePathFromHandle(h);
-	if (path == NULL) return L"<NoPath>";
-	CHAR16 *str = DevicePathToStr(path);
-	if (str == NULL) return L"<NoString>";
-	return str;
+CHAR16* HandleToString(EFI_HANDLE h) {
+    EFI_DEVICE_PATH* path = DevicePathFromHandle(h);
+    if (path == NULL)
+        return L"<NoPath>";
+    CHAR16* str = DevicePathToStr(path);
+    if (str == NULL)
+        return L"<NoString>";
+    return str;
 }
 
-
-EFI_STATUS OpenProtocol(EFI_HANDLE h, EFI_GUID *guid, void **ifc) {
-	return gBS->OpenProtocol(h, guid, ifc, gImg, NULL,
-		EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+EFI_STATUS OpenProtocol(EFI_HANDLE h, EFI_GUID* guid, void** ifc) {
+    return gBS->OpenProtocol(h, guid, ifc, gImg, NULL,
+                             EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
 }
 
-EFI_STATUS CloseProtocol(EFI_HANDLE h, EFI_GUID *guid) {
-	return gBS->CloseProtocol(h, guid, gImg, NULL);
+EFI_STATUS CloseProtocol(EFI_HANDLE h, EFI_GUID* guid) {
+    return gBS->CloseProtocol(h, guid, gImg, NULL);
 }
