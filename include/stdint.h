@@ -39,5 +39,5 @@ typedef unsigned int uint;
 typedef int bool;
 typedef int ssize_t;
 
-#define false(0)
-#define true(1)
+#define false (0)
+#define true (1)
