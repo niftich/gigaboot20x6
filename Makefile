@@ -103,3 +103,4 @@ all: $(ALL) out/nbserver
 
 clean::
 	rm -rf out
+	make -C third_party/gnu-efi clean
