@@ -53,6 +53,12 @@ $(call efi_app, fileio, fileio.c)
 $(call efi_app, osboot, osboot.c netboot.c netifc.c inet6.c)
 $(call efi_app, usbtest, usbtest.c)
 
+ifneq ($(APP),)
+	APP := out/$(APP).efi
+else
+	APP := out/osboot.efi
+endif
+
 LIB_SRCS := lib/goodies.c lib/loadfile.c lib/console-printf.c lib/string.c
 LIB_SRCS += third_party/lk/src/printf.c
 
@@ -65,7 +71,7 @@ out/libstuff.a: $(LIB_OBJS)
 	$(QUIET)rm -f $@
 	$(QUIET)ar rc $@ $^
 
-out/BOOTx64.EFI: out/osboot.efi
+out/BOOTx64.EFI: $(APP)
 	@mkdir -p $(dir $@)
 	$(QUIET)cp -f $^ $@
 
