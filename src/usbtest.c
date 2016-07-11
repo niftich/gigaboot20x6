@@ -150,5 +150,6 @@ EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
 
     RemoveMyDriver(img, sys);
 
+    WaitAnyKey();
     return EFI_SUCCESS;
 }
