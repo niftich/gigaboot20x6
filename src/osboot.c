@@ -326,7 +326,8 @@ uint32_t find_acpi_root(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
 static EFI_GRAPHICS_OUTPUT_PROTOCOL* gop;
 
 int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys,
-                void* image, size_t sz, void* ramdisk, size_t rsz) {
+                void* image, size_t sz, void* ramdisk, size_t rsz,
+                void* cmdline, size_t csz) {
     kernel_t kernel;
     EFI_STATUS r;
     UINTN key;
@@ -353,6 +354,9 @@ int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys,
     ZP32(kernel.zeropage, ZP_FB_REGBASE) = 0;
     ZP32(kernel.zeropage, ZP_FB_SIZE) = 256 * 1024 * 1024;
 
+    if (cmdline) {
+        memcpy(kernel.cmdline, cmdline, csz);
+    }
     if (ramdisk && rsz) {
         ZP32(kernel.zeropage, ZP_RAMDISK_BASE) = (uint32_t) (uintptr_t) ramdisk;
         ZP32(kernel.zeropage, ZP_RAMDISK_SIZE) = rsz;
@@ -383,11 +387,12 @@ int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys,
     return 0;
 }
 
-#define KBUFSIZE (16*1024*1024)
-#define RBUFSIZE (128*1024*1024)
+#define KBUFSIZE (32*1024*1024)
+#define RBUFSIZE (256*1024*1024)
 
 static nbfile nbkernel;
 static nbfile nbramdisk;
+static nbfile nbcmdline;
 
 nbfile* netboot_get_buffer(const char* name) {
     // we know these are in a buffer large enough
@@ -398,8 +403,13 @@ nbfile* netboot_get_buffer(const char* name) {
     if (!memcmp(name, "ramdisk.bin", 11)) {
         return &nbramdisk;
     }
+    if (!memcmp(name, "cmdline", 7)) {
+        return &nbcmdline;
+    }
     return NULL;
 }
+
+static char cmdline[4096];
 
 int try_local_boot(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
     UINTN ksz, rsz;
@@ -413,7 +423,7 @@ int try_local_boot(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
     
     ramdisk = LoadFile(L"ramdisk.bin", &rsz);
 
-    boot_kernel(img, sys, kernel, ksz, ramdisk, rsz);
+    boot_kernel(img, sys, kernel, ksz, ramdisk, rsz, NULL, 0);
     return -1;
 }
 
@@ -448,6 +458,10 @@ EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
     }
     nbramdisk.data = (void*) mem;
     nbramdisk.size = RBUFSIZE;
+
+    nbcmdline.data = (void*) cmdline;
+    nbcmdline.size = sizeof(cmdline);
+    cmdline[0] = 0;
 
     if (netboot_init()) {
         printf("Failed to initialize NetBoot\n");
@@ -488,7 +502,8 @@ EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
 
         // maybe it's a kernel image?
         boot_kernel(img, sys, (void*) nbkernel.data, nbkernel.offset,
-                    (void*) nbramdisk.data, nbramdisk.offset);
+                    (void*) nbramdisk.data, nbramdisk.offset,
+                    cmdline, sizeof(cmdline));
         goto fail;
     }
 
