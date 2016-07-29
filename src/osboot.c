@@ -412,9 +412,10 @@ nbfile* netboot_get_buffer(const char* name) {
 static char cmdline[4096];
 
 int try_local_boot(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
-    UINTN ksz, rsz;
+    UINTN ksz, rsz, csz;
     void* kernel;
     void* ramdisk;
+    void* cmdline;
     
     if ((kernel = LoadFile(L"magenta.bin", &ksz)) == NULL) {
         printf("Failed to load 'magenta.bin' from boot media\n\n");
@@ -422,8 +423,9 @@ int try_local_boot(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
     }
     
     ramdisk = LoadFile(L"ramdisk.bin", &rsz);
+    cmdline = LoadFile(L"cmdline", &csz);
 
-    boot_kernel(img, sys, kernel, ksz, ramdisk, rsz, NULL, 0);
+    boot_kernel(img, sys, kernel, ksz, ramdisk, rsz, cmdline, csz);
     return -1;
 }
 
