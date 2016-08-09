@@ -355,7 +355,12 @@ int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys,
     ZP32(kernel.zeropage, ZP_FB_SIZE) = 256 * 1024 * 1024;
 
     if (cmdline) {
+        // Truncate the cmdline to fit on a page
+        if (csz >= 4095) {
+            csz = 4095;
+        }
         memcpy(kernel.cmdline, cmdline, csz);
+        kernel.cmdline[csz] = '\0';
     }
     if (ramdisk && rsz) {
         ZP32(kernel.zeropage, ZP_RAMDISK_BASE) = (uint32_t) (uintptr_t) ramdisk;
